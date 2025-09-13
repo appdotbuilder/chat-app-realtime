@@ -1,25 +1,43 @@
+import { db } from '../db';
+import { usersTable, rolesTable } from '../db/schema';
 import { type AssignUserRoleInput, type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function assignUserRole(input: AssignUserRoleInput): Promise<User> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to assign roles to users,
-    // validate admin privileges, ensure role exists,
-    // update user record, and return updated user data
-    return Promise.resolve({
-        id: input.user_id,
-        username: 'target_user',
-        email: 'target@example.com',
-        password_hash: 'hashed_password_placeholder',
-        display_name: 'Target User',
-        avatar_url: null,
-        gold_credits: 100,
+export const assignUserRole = async (input: AssignUserRoleInput): Promise<User> => {
+  try {
+    // Verify that the role exists
+    const roleExists = await db.select()
+      .from(rolesTable)
+      .where(eq(rolesTable.id, input.role_id))
+      .execute();
+
+    if (roleExists.length === 0) {
+      throw new Error(`Role with id ${input.role_id} does not exist`);
+    }
+
+    // Verify that the user exists
+    const userExists = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (userExists.length === 0) {
+      throw new Error(`User with id ${input.user_id} does not exist`);
+    }
+
+    // Update the user's role
+    const result = await db.update(usersTable)
+      .set({
         role_id: input.role_id,
-        language: 'en',
-        theme: 'light',
-        is_active: true,
-        is_verified: true,
-        last_login_at: new Date(),
-        created_at: new Date(Date.now() - 86400000),
         updated_at: new Date()
-    } as User);
-}
+      })
+      .where(eq(usersTable.id, input.user_id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Role assignment failed:', error);
+    throw error;
+  }
+};

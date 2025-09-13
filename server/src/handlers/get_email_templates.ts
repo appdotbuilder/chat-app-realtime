@@ -1,40 +1,42 @@
+import { db } from '../db';
+import { emailTemplatesTable } from '../db/schema';
 import { type EmailTemplate } from '../schema';
+import { eq, and, type SQL } from 'drizzle-orm';
 
-export async function getEmailTemplates(): Promise<EmailTemplate[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch all email templates,
-    // validate admin privileges, support filtering by language and status,
-    // and provide template management capabilities
-    return Promise.resolve([
-        {
-            id: 1,
-            template_key: 'welcome_email',
-            subject: 'Welcome to ChatApp!',
-            body: 'Hello {{username}}, welcome to our chat platform!',
-            language: 'en',
-            is_active: true,
-            created_at: new Date(Date.now() - 86400000),
-            updated_at: new Date(Date.now() - 86400000)
-        },
-        {
-            id: 2,
-            template_key: 'password_reset',
-            subject: 'Password Reset Request',
-            body: 'Click here to reset your password: {{reset_link}}',
-            language: 'en',
-            is_active: true,
-            created_at: new Date(Date.now() - 86400000),
-            updated_at: new Date(Date.now() - 86400000)
-        },
-        {
-            id: 3,
-            template_key: 'welcome_email',
-            subject: 'Bienvenue sur ChatApp!',
-            body: 'Bonjour {{username}}, bienvenue sur notre plateforme de chat!',
-            language: 'fr',
-            is_active: true,
-            created_at: new Date(Date.now() - 86400000),
-            updated_at: new Date(Date.now() - 86400000)
-        }
-    ] as EmailTemplate[]);
+export interface GetEmailTemplatesFilters {
+  language?: string;
+  is_active?: boolean;
+  template_key?: string;
 }
+
+export const getEmailTemplates = async (filters?: GetEmailTemplatesFilters): Promise<EmailTemplate[]> => {
+  try {
+    // Build conditions array for filtering
+    const conditions: SQL<unknown>[] = [];
+
+    if (filters?.language) {
+      conditions.push(eq(emailTemplatesTable.language, filters.language));
+    }
+
+    if (filters?.is_active !== undefined) {
+      conditions.push(eq(emailTemplatesTable.is_active, filters.is_active));
+    }
+
+    if (filters?.template_key) {
+      conditions.push(eq(emailTemplatesTable.template_key, filters.template_key));
+    }
+
+    // Build and execute query
+    const query = conditions.length > 0
+      ? db.select()
+          .from(emailTemplatesTable)
+          .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+      : db.select().from(emailTemplatesTable);
+
+    const results = await query.execute();
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch email templates:', error);
+    throw error;
+  }
+};
